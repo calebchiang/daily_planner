@@ -22,7 +22,6 @@ enum Category {
 struct Task {
     id: u16,
     name: String,
-    description: String,
     priority: Priority,
     category: Category,
     start_time: DateTime<Utc>,
@@ -87,16 +86,36 @@ impl TaskManager {
         }
     }
 
+    fn validate_id(&mut self) -> Option<&mut Task> {
+        if self.tasks.is_empty() {
+            println!("No tasks available.");
+            return None;
+        }
+
+        println!("Enter the ID of the task:");
+        let mut id_input = String::new();
+        std::io::stdin().read_line(&mut id_input).expect("Failed to read line");
+
+        if let Ok(id) = id_input.trim().parse::<u16>() {
+            for task in &mut self.tasks {
+                if task.id == id {
+                    return Some(task);
+                }
+            }
+            println!("No task found with ID: {}", id);
+        } else {
+            println!("Invalid ID entered. Please enter a numeric value.");
+        }
+
+        None
+    }
+
+
     fn add_task(&mut self) {
         println!("Task Name:");
         let mut task_name = String::new();
         io::stdin().read_line(&mut task_name).expect("Failed to read line");
         let task_name = task_name.trim().to_string();
-
-        println!("Description:");
-        let mut description = String::new();
-        io::stdin().read_line(&mut description).expect("Failed to read line");
-        let description = description.trim().to_string();
 
         // Loop for priority input
         let mut priority_input = String::new();
@@ -183,7 +202,6 @@ impl TaskManager {
         let task = Task {
             id: self.next_id,
             name: task_name,
-            description: description,
             priority: priority,
             category: category,
             start_time: start_time,
@@ -201,8 +219,8 @@ impl TaskManager {
             println!("No tasks to display.");
         } else {
             println!("\nSchedule for Today:\n");
-            println!("{:<5} {:<8} {:<8} {:<20} {:<30} {:<10} {:<10} ",
-                     "ID", "START", "END", "NAME", "DESCRIPTION", "PRIORITY", "CATEGORY");
+            println!("{:<2} {:<8} {:<8} {:<20} {:<9} {:<15} ",
+                     "ID", "START", "END", "NAME", "PRIORITY", "CATEGORY");
             println!("{}", "-".repeat(100));
             for task in &self.tasks {
                 let priority_color = match task.priority {
@@ -212,12 +230,11 @@ impl TaskManager {
                 };
 
                 println!(
-                    "{:>5} {:<8} {:<8} {:<20} {:<30} {:<10} {:<10}",
+                    "{:>2} {:<8} {:<8} {:<20} {:<9} {:<15}",
                     task.id,
                     task.start_time.format("%H:%M"),
                     task.end_time.format("%H:%M"),
                     task.name,
-                    task.description,
                     priority_color,
                     format!("{:?}", task.category),
                 );
@@ -225,25 +242,142 @@ impl TaskManager {
             println!();
         }
     }
-}
 
-fn main() {
-    let mut task_manager = TaskManager::new(NaiveDate::from_ymd(1970, 1, 1));
-    task_manager.get_date();
+    fn edit_task(&mut self) {
+        self.display_schedule();
+        if let Some(task) = self.validate_id() {
+            println!("Select the field you want to edit:");
+            println!("1. Name");
+            println!("2. Priority");
+            println!("3. Category");
+            println!("4. Start time");
+            println!("5. End time");
 
-    loop {
-        let user_input = TaskManager::get_user_input();
-        match user_input {
-            1 => task_manager.add_task(),
-            2 => task_manager.display_schedule(),
-            3 => println!("Edit function to be implemented. "),
-            4 => println!("Remove function to be implemented."),
-            5 => println!("Save function to be implemented."),
-            6 => {
-                println!("Exiting the program.");
-                break;
-            },
-            _ => println!("Invalid option. Please try again."),
+            let mut field_input = String::new();
+            loop {
+                io::stdin().read_line(&mut field_input).expect("Failed to read line");
+                let choice = field_input.trim().parse::<u8>();
+
+                match choice {
+                    Ok(num) if num >= 1 && num <= 5 => {
+                        match num {
+                            1 => {
+                                println!("Enter new name:");
+                                let mut new_name = String::new();
+                                io::stdin().read_line(&mut new_name).expect("Failed to read line");
+                                task.name = new_name.trim().to_string();
+                            },
+                            2 => {
+                                println!("Enter new priority (Low, Medium, High):");
+                                let mut new_priority = String::new();
+                                io::stdin().read_line(&mut new_priority).expect("Failed to read line");
+                                task.priority = match new_priority.trim().to_lowercase().as_str() {
+                                    "low" => Priority::Low,
+                                    "medium" => Priority::Medium,
+                                    "high" => Priority::High,
+                                    _ => {
+                                        println!("Invalid priority entered. Keeping previous.");
+                                        continue;
+                                    }
+                                };
+                            },
+                            3 => {
+                                println!("Enter new category (Work/Personal/Health/Education/Leisure/Household):");
+                                let mut new_category = String::new();
+                                io::stdin().read_line(&mut new_category).expect("Failed to read line");
+                                task.category = match new_category.trim().to_lowercase().as_str() {
+                                    "work" => Category::Work,
+                                    "personal" => Category::Personal,
+                                    "health" => Category::Health,
+                                    "education" => Category::Education,
+                                    "leisure" => Category::Leisure,
+                                    "household" => Category::Household,
+                                    _ => {
+                                        println!("Invalid Category.");
+                                        continue;
+                                    },
+                                };
+                                break;
+                            }
+                            4 => {
+                                println!("Enter new start time (HH:MM):");
+                                let mut new_start_time = String::new();
+                                io::stdin().read_line(&mut new_start_time).expect("Failed to read line");
+                                match Utc.datetime_from_str(
+                                    &format!("{} {}", task.start_time.date().naive_utc(), new_start_time.trim()),
+                                    "%Y-%m-%d %H:%M"
+                                ) {
+                                    Ok(parsed_time) => task.start_time = parsed_time,
+                                    Err(_) => {
+                                        println!("Invalid time format. Please use HH:MM format.");
+                                        continue;  // If invalid, repeat the time input
+                                    }
+                                }
+                            },
+                            5 => {
+                                println!("Enter new end time (HH:MM):");
+                                let mut new_end_time = String::new();
+                                io::stdin().read_line(&mut new_end_time).expect("Failed to read line");
+                                match Utc.datetime_from_str(
+                                    &format!("{} {}", task.end_time.date().naive_utc(), new_end_time.trim()),
+                                    "%Y-%m-%d %H:%M"
+                                ) {
+                                    Ok(parsed_time) => task.end_time = parsed_time,
+                                    Err(_) => {
+                                        println!("Invalid time format. Please use HH:MM format.");
+                                        continue;  // If invalid, repeat the time input
+                                    }
+                                }
+                            },
+
+                            _ => unreachable!(), // Since we already validate the range, this should not happen
+                        }
+                        println!("Task updated successfully.");
+                        break;  // Exit the loop after successful update
+                    },
+                    _ => {
+                        println!("Invalid choice. Please enter a number between 1 and 4:");
+                        field_input.clear();  // Clear invalid input before next iteration
+                    }
+                }
+            }
         }
     }
+
+    pub fn remove_task(&mut self) {
+        self.display_schedule();
+
+        if let Some(task) = self.validate_id() {
+            let task_id = task.id; // Store the ID of the task to remove.
+            if let Some(index) = self.tasks.iter().position(|t| t.id == task_id) {
+                self.tasks.remove(index); // Remove the task by index.
+                println!("Task successfully removed.");
+            } else {
+                println!("Task not found.");
+            }
+        }
+    }
+
 }
+
+    fn main() {
+        let mut task_manager = TaskManager::new(NaiveDate::from_ymd(1970, 1, 1));
+        task_manager.get_date();
+
+        loop {
+            let user_input = TaskManager::get_user_input();
+            match user_input {
+                1 => task_manager.add_task(),
+                2 => task_manager.display_schedule(),
+                3 => task_manager.edit_task(),
+                4 => task_manager.remove_task(),
+                5 => println!("Save function to be implemented."),
+                6 => {
+                    println!("Exiting the program.");
+                    break;
+                },
+                _ => println!("Invalid option. Please try again."),
+            }
+        }
+    }
+
