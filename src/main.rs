@@ -1,8 +1,15 @@
 extern crate chrono;
 use chrono::{NaiveDate};
 mod lib;
+mod quote;
 
     fn main() {
+
+        match quote::fetch_quote() {
+            Ok(quote) => println!("Quote of the day: {}", quote),
+            Err(err) => println!("Failed to fetch quote: {}", err),
+        }
+
         let mut task_manager = lib::TaskManager::new(NaiveDate::from_ymd(1970, 1, 1));
         task_manager.get_date();
 
