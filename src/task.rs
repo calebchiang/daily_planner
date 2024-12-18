@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fmt, fs::File};
 use std::io::Write;
 use chrono::{DateTime, Utc, NaiveDate, TimeZone};
 
@@ -17,6 +17,33 @@ pub enum Category {
     Education,
     Leisure,
     Household,
+}
+
+// Implement Display for Priority
+impl fmt::Display for Priority {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Priority::High => "High",
+            Priority::Medium => "Medium",
+            Priority::Low => "Low",
+        };
+        write!(f, "{}", text)
+    }
+}
+
+// Implement Display for Category
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            Category::Work => "Work",
+            Category::Personal => "Personal",
+            Category::Health => "Health",
+            Category::Education => "Education",
+            Category::Leisure => "Leisure",
+            Category::Household => "Household",
+        };
+        write!(f, "{}", text)
+    }
 }
 
 #[derive(Debug, Clone)]
