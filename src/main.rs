@@ -5,7 +5,6 @@ mod ui;
 use quote::fetch_quote;
 use ui::startup_ui;
 use task::TaskManager;
-use chrono::Local;
 
 fn main() {
     // Step 1: Fetch the quote

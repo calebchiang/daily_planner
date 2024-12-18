@@ -4,27 +4,26 @@ use ratatui::{
 use crossterm::{
     event::{self, read, Event, KeyCode}, execute, terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType}
 };
-use std::io::{self, stdout};
+use std::{env::home_dir, fs, io::{self, stdout}, path::PathBuf};
 use chrono::{NaiveDate, NaiveTime, Utc};
 
 use crate::task::{Category, Priority, TaskManager};
 
 pub fn startup_ui(quote: &str) -> io::Result<NaiveDate> {
-    enable_raw_mode()?; // Enable raw mode for input handling
-    let mut stdout = stdout(); // Explicitly define stdout
+    enable_raw_mode()?; 
+    let mut stdout = stdout(); 
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     let mut date_input = String::new();
 
     // Clear the screen before rendering the UI
     execute!(stdout, Clear(ClearType::All))?;
-
     loop {
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(6), // Quote panel height
-                    Constraint::Min(1),    // Space for date input
+                    Constraint::Length(6), 
+                    Constraint::Min(1),   
                 ])
                 .split(f.size());
 
@@ -61,10 +60,10 @@ pub fn startup_ui(quote: &str) -> io::Result<NaiveDate> {
                 KeyCode::Enter => {
                     if let Ok(date) = NaiveDate::parse_from_str(&date_input, "%Y-%m-%d") {
                         disable_raw_mode()?;
-                        execute!(stdout, Clear(ClearType::All))?; // Clear screen before exiting
-                        return Ok(date); // Return the parsed date
+                        execute!(stdout, Clear(ClearType::All))?; 
+                        return Ok(date); 
                     } else {
-                        date_input.clear(); // Invalid date, clear input
+                        date_input.clear(); 
                     }
                 }
                 KeyCode::Char(c) => date_input.push(c),
@@ -73,7 +72,7 @@ pub fn startup_ui(quote: &str) -> io::Result<NaiveDate> {
                 }
                 KeyCode::Esc => {
                     disable_raw_mode()?;
-                    execute!(stdout, Clear(ClearType::All))?; // Clear screen before quitting
+                    execute!(stdout, Clear(ClearType::All))?; 
                     std::process::exit(0);
                 }
                 _ => {}
@@ -88,6 +87,13 @@ pub fn task_ui(task_manager: &mut TaskManager, quote: &str) -> io::Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     let mut selected_task = 0;
     let mut needs_redraw = true; // Flag to track if the UI needs to be redrawn
+
+    // Ensure the "schedules" directory exists in the home directory
+    let schedules_dir: PathBuf = home_dir().unwrap_or_else(|| PathBuf::from(".")).join("schedules");
+    if let Err(e) = fs::create_dir_all(&schedules_dir) {
+        eprintln!("Error creating schedules directory: {}", e);
+        return Err(io::Error::new(io::ErrorKind::Other, "Failed to create schedules directory"));
+    }
 
     loop {
         // Redraw the UI only if needed
@@ -112,34 +118,34 @@ pub fn task_ui(task_manager: &mut TaskManager, quote: &str) -> io::Result<()> {
 
                 // Task List Panel
                 let task_list: Vec<ListItem> = task_manager
-                .tasks
-                .iter()
-                .enumerate()
-                .map(|(i, task)| {
-                    let style = if i == selected_task {
-                        Style::default().fg(Color::Black).bg(Color::White)
-                    } else {
-                        Style::default()
-                    };
+                    .tasks
+                    .iter()
+                    .enumerate()
+                    .map(|(i, task)| {
+                        let style = if i == selected_task {
+                            Style::default().fg(Color::Black).bg(Color::White)
+                        } else {
+                            Style::default()
+                        };
 
-                ListItem::new(format!(
-                    "{} | {} - {} | {} | Priority: {}",
-                    task.name,
-                    task.start_time.format("%H:%M"),
-                    task.end_time.format("%H:%M"),
-                    task.category, 
-                    task.priority  
-                ))
-                .style(style)
-            })
-            .collect();
+                        ListItem::new(format!(
+                            "{} | {} - {} | {} | Priority: {}",
+                            task.name,
+                            task.start_time.format("%H:%M"),
+                            task.end_time.format("%H:%M"),
+                            task.category,
+                            task.priority
+                        ))
+                        .style(style)
+                    })
+                    .collect();
 
                 let list = List::new(task_list)
                     .block(Block::default().borders(Borders::ALL).title("Tasks"));
                 f.render_widget(list, chunks[1]);
 
                 // Instructions Panel
-                let instructions = Paragraph::new("Up/Down: Navigate | a: Add | e: Edit | r: Remove | s: Save | q: Quit")
+                let instructions = Paragraph::new("Up/Down: Navigate | a: Add | r: Remove | s: Save | q: Quit")
                     .style(Style::default().fg(Color::LightCyan))
                     .block(Block::default().borders(Borders::ALL).title("Instructions"));
                 f.render_widget(instructions, chunks[2]);
@@ -153,16 +159,17 @@ pub fn task_ui(task_manager: &mut TaskManager, quote: &str) -> io::Result<()> {
             match key.code {
                 KeyCode::Char('q') => {
                     disable_raw_mode()?;
+                    execute!(stdout(), Clear(ClearType::All))?; // Clear the terminal
                     return Ok(());
                 }
                 KeyCode::Down => {
-                    if selected_task < task_manager.tasks.len() - 1 {
+                    if !task_manager.tasks.is_empty() && selected_task < task_manager.tasks.len() - 1 {
                         selected_task += 1;
                         needs_redraw = true; // Update the UI
                     }
                 }
                 KeyCode::Up => {
-                    if selected_task > 0 {
+                    if !task_manager.tasks.is_empty() && selected_task > 0 {
                         selected_task -= 1;
                         needs_redraw = true; // Update the UI
                     }
@@ -171,16 +178,31 @@ pub fn task_ui(task_manager: &mut TaskManager, quote: &str) -> io::Result<()> {
                     prompt_new_task(task_manager, &mut terminal)?; // Use shared terminal
                     needs_redraw = true; // Force a full redraw
                 }
-                KeyCode::Char('e') => {
-                    // TODO: Edit selected task
-                    needs_redraw = true; // Force a redraw after editing
-                }
                 KeyCode::Char('r') => {
-                    // TODO: Remove selected task
-                    needs_redraw = true; // Force a redraw after removing
+                    if !task_manager.tasks.is_empty() {
+                        task_manager.tasks.remove(selected_task);
+                        if selected_task > 0 {
+                            selected_task -= 1;
+                        }
+                        needs_redraw = true; // Refresh the UI
+                    }
                 }
                 KeyCode::Char('s') => {
-                    task_manager.save_schedule("schedule.txt").unwrap();
+                    let save_path = schedules_dir.join(format!("{}.csv", task_manager.date));
+                    match task_manager.save_schedule(&save_path) {
+                        Ok(_) => {
+                            disable_raw_mode()?;
+                            execute!(stdout(), Clear(ClearType::All))?; // Clear the terminal
+                            println!("\nSchedule saved successfully to {:?}!", save_path);
+                            return Ok(());
+                        }
+                        Err(err) => {
+                            disable_raw_mode()?;
+                            execute!(stdout(), Clear(ClearType::All))?; // Clear the terminal
+                            eprintln!("Error saving schedule: {}", err);
+                            return Err(io::Error::new(io::ErrorKind::Other, "Save failed"));
+                        }
+                    }
                 }
                 _ => {}
             }

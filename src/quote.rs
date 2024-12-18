@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::error::Error;
 use std::env;
 use dotenv::dotenv;
-use reqwest::Client;
+
 
 #[derive(Deserialize, Debug)]
 struct ApiResponse {

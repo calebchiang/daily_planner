@@ -1,5 +1,0 @@
-2024-10-26
-
-START     END     NAME               PRIORITY   CATEGORY
- --------------------------------------------------------------------------------
-08:00    10:00    do the dishes        Medium    Household      
